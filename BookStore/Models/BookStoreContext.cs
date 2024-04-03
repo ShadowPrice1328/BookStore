@@ -17,7 +17,15 @@ public partial class BookStoreContext : DbContext
 
     public virtual DbSet<Admin> Admins { get; set; }
 
+    public virtual DbSet<Author> Authors { get; set; }
+
     public virtual DbSet<Book> Books { get; set; }
+
+    public virtual DbSet<BookAuthor> BookAuthors { get; set; }
+
+    public virtual DbSet<BookGenre> BookGenres { get; set; }
+
+    public virtual DbSet<Genre> Genres { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
 
@@ -52,19 +60,27 @@ public partial class BookStoreContext : DbContext
                 .HasConstraintName("FK__Admin__IdUser__693CA210");
         });
 
+        modelBuilder.Entity<Author>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Author__3214EC074E0BCDA0");
+
+            entity.ToTable("Author");
+
+            entity.Property(e => e.FirstName)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.LastName)
+                .HasMaxLength(40)
+                .IsUnicode(false);
+        });
+
         modelBuilder.Entity<Book>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__Book__3214EC07D8AE4119");
 
             entity.ToTable("Book");
 
-            entity.Property(e => e.Author)
-                .HasMaxLength(255)
-                .IsUnicode(false);
             entity.Property(e => e.Description).HasColumnType("text");
-            entity.Property(e => e.Genre)
-                .HasMaxLength(50)
-                .IsUnicode(false);
             entity.Property(e => e.Isbn)
                 .HasMaxLength(20)
                 .IsUnicode(false)
@@ -78,9 +94,7 @@ public partial class BookStoreContext : DbContext
             entity.Property(e => e.OriginalName)
                 .HasMaxLength(255)
                 .IsUnicode(false);
-            entity.Property(e => e.Period)
-                .HasMaxLength(50)
-                .IsUnicode(false);
+            entity.Property(e => e.Pages).HasDefaultValueSql("((0))");
             entity.Property(e => e.Price).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.PublishingHouse)
                 .HasMaxLength(100)
@@ -91,8 +105,50 @@ public partial class BookStoreContext : DbContext
             entity.Property(e => e.Translator)
                 .HasMaxLength(255)
                 .IsUnicode(false);
-            entity.Property(e => e.Type)
-                .HasMaxLength(50)
+        });
+
+        modelBuilder.Entity<BookAuthor>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__BookAuth__3214EC0775C22F46");
+
+            entity.ToTable("BookAuthor");
+
+            entity.HasOne(d => d.IdAuthorNavigation).WithMany(p => p.BookAuthors)
+                .HasForeignKey(d => d.IdAuthor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__BookAutho__IdAut__05D8E0BE");
+
+            entity.HasOne(d => d.IdBookNavigation).WithMany(p => p.BookAuthors)
+                .HasForeignKey(d => d.IdBook)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__BookAutho__IdBoo__04E4BC85");
+        });
+
+        modelBuilder.Entity<BookGenre>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__BookGenr__3214EC07CF1D57E6");
+
+            entity.ToTable("BookGenre");
+
+            entity.HasOne(d => d.IdBookNavigation).WithMany(p => p.BookGenres)
+                .HasForeignKey(d => d.IdBook)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__BookGenre__IdBoo__71D1E811");
+
+            entity.HasOne(d => d.IdGenreNavigation).WithMany(p => p.BookGenres)
+                .HasForeignKey(d => d.IdGenre)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__BookGenre__IdGen__72C60C4A");
+        });
+
+        modelBuilder.Entity<Genre>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Genre__3214EC0746C3E0DB");
+
+            entity.ToTable("Genre");
+
+            entity.Property(e => e.Name)
+                .HasMaxLength(60)
                 .IsUnicode(false);
         });
 

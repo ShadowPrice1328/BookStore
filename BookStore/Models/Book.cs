@@ -9,10 +9,6 @@ public partial class Book
 
     public string Name { get; set; } = null!;
 
-    public string Author { get; set; } = null!;
-
-    public string Genre { get; set; } = null!;
-
     public int YearOfPublish { get; set; }
 
     public decimal Price { get; set; }
@@ -27,17 +23,19 @@ public partial class Book
 
     public string? Series { get; set; }
 
-    public string Period { get; set; } = null!;
-
     public string Isbn { get; set; } = null!;
 
     public string Language { get; set; } = null!;
 
-    public string Type { get; set; } = null!;
-
     public string? Translator { get; set; }
 
     public string? OriginalName { get; set; }
+
+    public int? Pages { get; set; }
+
+    public virtual ICollection<BookAuthor> BookAuthors { get; } = new List<BookAuthor>();
+
+    public virtual ICollection<BookGenre> BookGenres { get; } = new List<BookGenre>();
 
     public virtual ICollection<OrderBook> OrderBooks { get; } = new List<OrderBook>();
 

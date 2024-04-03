@@ -16,6 +16,7 @@ wwwroot/lib/bootstrap/
 # Generated files
 project.lock.json
 .vs/
+Properties/
 
 # mstest test results
 TestResults
