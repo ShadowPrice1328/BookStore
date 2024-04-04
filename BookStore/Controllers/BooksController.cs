@@ -15,11 +15,16 @@ public class BooksController : Controller
         _bkstrContext = bkstrContext;
     }
 
-    // GET: api/books
+    // GET: api/books?[...]=[...]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Book>>> GetBooks(
         [FromQuery] string? name,
-        [FromQuery] string? genre)
+        [FromQuery] string? genre,
+        [FromQuery] int? year,
+        [FromQuery] int? afterYear,
+        [FromQuery] int? beforeYear,
+        [FromQuery] string? publishingHouse,
+        [FromQuery] int available)
     {
         IQueryable<Book> query = _bkstrContext.Books
             .Include(b => b.BookAuthors)
@@ -31,6 +36,16 @@ public class BooksController : Controller
             query = query.Where(b => b.Name.StartsWith(name));
         if (!string.IsNullOrEmpty(genre))
             query = query.Where(b => b.BookGenres.Any(bg => bg.IdGenreNavigation.Name == genre));
+        if (year > 0)
+            query = query.Where(b => b.YearOfPublish == year);
+        if (afterYear > 0)
+           query = query.Where(b => b.YearOfPublish > afterYear);
+        if (beforeYear > 0)
+            query = query.Where(b => b.YearOfPublish < beforeYear);
+        if (!string.IsNullOrEmpty(publishingHouse))
+            query = query.Where(b => b.PublishingHouse == publishingHouse);
+        if (available >= 0)
+            query = query.Where(b => b.CountAvailable >= available);
 
         var books = await query.Select(b => MapBook(b)).ToListAsync();
 
@@ -42,7 +57,7 @@ public class BooksController : Controller
 
     // GET: api/books/{id}
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<Book>> GetBooks(int id)
+    public async Task<ActionResult<Book>> GetBook(int id)
     {
         var books = await _bkstrContext.Books
         .Include(b => b.BookAuthors)
