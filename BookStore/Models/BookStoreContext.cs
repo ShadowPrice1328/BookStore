@@ -95,6 +95,9 @@ public partial class BookStoreContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false);
             entity.Property(e => e.Pages).HasDefaultValueSql("((0))");
+            entity.Property(e => e.Picture)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.Price).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.PublishingHouse)
                 .HasMaxLength(100)

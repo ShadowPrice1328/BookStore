@@ -43,6 +43,7 @@ public class BooksController : Controller
                     b.Translator,
                     b.OriginalName,
                     b.Pages,
+                    b.Picture,
                     AuthorName = string.Join(", ", b.BookAuthors.Select(ba => $"{ba.IdAuthorNavigation.FirstName} {ba.IdAuthorNavigation.LastName}")),
                     Genres = string.Join(", ", b.BookGenres.Select(bg => $"{bg.IdGenreNavigation.Name}"))
                 })

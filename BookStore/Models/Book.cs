@@ -33,6 +33,8 @@ public partial class Book
 
     public int? Pages { get; set; }
 
+    public string? Picture { get; set; }
+
     public virtual ICollection<BookAuthor> BookAuthors { get; } = new List<BookAuthor>();
 
     public virtual ICollection<BookGenre> BookGenres { get; } = new List<BookGenre>();
