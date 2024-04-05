@@ -24,7 +24,12 @@ public class BooksController : Controller
         [FromQuery] int? afterYear,
         [FromQuery] int? beforeYear,
         [FromQuery] string? publishingHouse,
-        [FromQuery] int available)
+        [FromQuery] int available,
+        [FromQuery] string? has_series,
+        [FromQuery] string? series,
+        [FromQuery] string? language,
+        [FromQuery] double price_from,
+        [FromQuery] double price_to)
     {
         IQueryable<Book> query = _bkstrContext.Books
             .Include(b => b.BookAuthors)
@@ -46,6 +51,28 @@ public class BooksController : Controller
             query = query.Where(b => b.PublishingHouse == publishingHouse);
         if (available >= 0)
             query = query.Where(b => b.CountAvailable >= available);
+        if (!string.IsNullOrEmpty(has_series))
+        {
+            if (has_series != "true" && has_series != "false")
+                return BadRequest("Invalid value for has_series parameter.");
+
+            query = has_series == "true" ? query.Where(b => b.Series != null)
+                : query.Where (b => string.IsNullOrEmpty(b.Series) || b.Series == null);
+        }
+        if (!string.IsNullOrEmpty(series))
+            query = query.Where(b => b.Series == series);
+        if (!string.IsNullOrEmpty(language))
+        {
+            if (int.TryParse(language, out _))
+                return BadRequest("Ivanid value for language parameter.");
+            else query = query.Where(b => b.Language == language);
+        }
+        if (price_from >= 0 && price_from <= 99999999.99)
+            query = query.Where(b => Convert.ToDouble(b.Price) >= price_from);
+        else {return BadRequest("Invalid value for price_from parameter.");}
+        if (price_to >= 0 && price_to <= 99999999.99)
+            query = query.Where(b => Convert.ToDouble(b.Price) <= price_to);
+        else {return BadRequest("Invalid value for price_to parameter.");}
 
         var books = await query.Select(b => MapBook(b)).ToListAsync();
 
@@ -68,6 +95,7 @@ public class BooksController : Controller
         .ToListAsync();
 
         var book = books.FirstOrDefault(b => b.Id == id);
+
         return Ok(book);
     }
 
