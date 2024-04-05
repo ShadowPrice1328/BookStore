@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<BookStoreContext>(options =>
     options.UseSqlServer("Data Source=(LocalDb)\\SQLEXPRESS;Database=BookStore"));
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
