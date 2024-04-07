@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BookStore.Models.ViewModels;
 using Microsoft.Extensions.Caching.Memory;
+using BookStore.Models.Exceptions;
+using System.Text;
 
 namespace BookStore.Controllers;
 
@@ -41,87 +43,118 @@ public class BooksController : Controller
         [FromQuery] double? price_from,
         [FromQuery] double? price_to)
     {
-        if (!_cache.TryGetValue("filteredBooks", out List<BookViewModel>? filteredBooks))
+        var cacheKey = GetCacheKey(name, genre, year, after_year, before_year, publishing_house, available, has_series, series, language, price_from, price_to);
+
+        if (!_cache.TryGetValue(cacheKey, out List<BookViewModel>? filteredBooks))
         {
-            if (!string.IsNullOrEmpty(name))
-                query = query.Where(b => b.Name.StartsWith(name));
-
-            if (!string.IsNullOrEmpty(genre))
-                query = query.Where(b => b.BookGenres.Any(bg => bg.IdGenreNavigation.Name == genre));
-
-            if (!string.IsNullOrEmpty(year))
+            try
             {
-                if (!int.TryParse(year.ToString(), out int yearInt) || yearInt < 0)
-                    return BadRequest("Invalid value for year parameter. Must be a valid integer.");
-                else query = query.Where(b => b.YearOfPublish == yearInt);
+                query = ApplyFilters(query, name, genre, year, after_year, before_year, publishing_house, available, has_series, series, language, price_from, price_to);
             }
-
-            if (!string.IsNullOrEmpty(after_year))
+            catch (ArgumentException)
+            {   
+                return BadRequest("Invalid value for available parameter. Must be a valid integer.");
+            }
+            catch (YearException ex)
             {
-                if (!int.TryParse(after_year, out int afterYear) || afterYear < 0)
-                    return BadRequest("Invalid value for after_year parameter. Must be a valid integer.");
-                else query = query.Where(b => b.YearOfPublish > afterYear);
+                return BadRequest($"Invalid value for {ex.parameter} parameter. Must be a valid integer.");
             }
-
-            if (!string.IsNullOrEmpty(before_year))
-            {
-                if (!int.TryParse(before_year, out int beforeYear) || beforeYear <= 0)
-                    return BadRequest("Invalid value for before_year parameter. Must be a valid integer.");
-                else query = query.Where(b => b.YearOfPublish < beforeYear);
-            }
-
-            if (!string.IsNullOrEmpty(publishing_house))
-                query = query.Where(b => b.PublishingHouse == publishing_house);
-
-            if (!string.IsNullOrEmpty(available))
-            {
-                if (!int.TryParse(available, out int availableInt) || availableInt < 0)
-                    return BadRequest("Invalid value for available parameter. Must be a valid integer.");
-                else query = query.Where(b => b.CountAvailable >= availableInt);
-            }
-
-            if (!string.IsNullOrEmpty(has_series))
-            {
-                if (has_series != "true" && has_series != "false")
-                    return BadRequest("Invalid value for has_series parameter.");
-
-                query = has_series == "true" ? query.Where(b => b.Series != null)
-                    : query.Where (b => string.IsNullOrEmpty(b.Series) || b.Series == null);
-            }
-
-            if (!string.IsNullOrEmpty(series))
-                query = query.Where(b => b.Series == series);
-
-            if (!string.IsNullOrEmpty(language))
-            {
-                if (int.TryParse(language, out _))
-                    return BadRequest("Invalid value for language parameter.");
-                else query = query.Where(b => b.Language == language);
-            }
-
-            if (price_from != null)
-            {
-                if (price_from >= 0 && price_from <= 99999999.99)
-                    query = query.Where(b => Convert.ToDouble(b.Price) >= price_from);
-                else return BadRequest("Invalid value for price_from parameter.");
-            }
-
-            if (price_to != null)
-            {
-                if (price_to >= 0 && price_to <= 99999999.99)
-                    query = query.Where(b => Convert.ToDouble(b.Price) <= price_to);
-                else return BadRequest("Invalid value for price_to parameter.");
-            }
-
+            
             var books = await query.Select(b => MapBook(b)).ToListAsync();
 
             if (books.Count == 0)
                 return NoContent();
 
-            _cache.Set("filteredBooks", books, TimeSpan.FromMinutes(10));
+            _cache.Set(cacheKey, books, TimeSpan.FromMinutes(10));
             filteredBooks = books;
         }
         return Ok(filteredBooks);
+    }
+    private static string GetCacheKey(params object?[] args)
+    {
+        StringBuilder cacheKeyBuilder = new();
+
+        foreach (var arg in args)
+        {
+            if (arg != null && !string.IsNullOrEmpty(arg.ToString()))
+            {
+                cacheKeyBuilder.Append(arg.ToString());
+            }
+        }
+        return cacheKeyBuilder.ToString();
+    }
+    private static IQueryable<Book> ApplyFilters(IQueryable<Book> query, string? name, string? genre, string? year, string? after_year, string? before_year, string? publishing_house, string? available, string? has_series, string? series, string? language, double? price_from, double? price_to)
+    {
+        if (!string.IsNullOrEmpty(name))
+            query = query.Where(b => b.Name.StartsWith(name));
+
+        if (!string.IsNullOrEmpty(genre))
+            query = query.Where(b => b.BookGenres.Any(bg => bg.IdGenreNavigation.Name == genre));
+
+        if (!string.IsNullOrEmpty(year))
+        {
+            if (!int.TryParse(year.ToString(), out int yearInt) || yearInt < 0)
+                throw new YearException("Invalid value for year parameter. Must be a valid integer.", "year");
+            else query = query.Where(b => b.YearOfPublish == yearInt);
+        }
+
+        if (!string.IsNullOrEmpty(after_year))
+        {
+            if (!int.TryParse(after_year, out int afterYear) || afterYear < 0)
+                throw new YearException("Invalid value for after_year parameter. Must be a valid integer.", "after_year");
+            else query = query.Where(b => b.YearOfPublish > afterYear);
+        }
+
+        if (!string.IsNullOrEmpty(before_year))
+        {
+            if (!int.TryParse(before_year, out int beforeYear) || beforeYear <= 0)
+                throw new YearException("Invalid value for before_year parameter. Must be a valid integer.", "before_year");
+            else query = query.Where(b => b.YearOfPublish < beforeYear);
+        }
+
+        if (!string.IsNullOrEmpty(publishing_house))
+            query = query.Where(b => b.PublishingHouse == publishing_house);
+
+        if (!string.IsNullOrEmpty(available))
+        {
+            if (!int.TryParse(available, out int availableInt) || availableInt < 0)
+                throw new ArgumentException("Invalid value for available parameter. Must be a valid integer.");
+            else query = query.Where(b => b.CountAvailable >= availableInt);
+        }
+
+        if (!string.IsNullOrEmpty(has_series))
+        {
+            if (has_series != "true" && has_series != "false")
+                throw new ArgumentException("Invalid value for has_series parameter.");
+
+            query = has_series == "true" ? query.Where(b => b.Series != null)
+                : query.Where (b => string.IsNullOrEmpty(b.Series) || b.Series == null);
+        }
+
+        if (!string.IsNullOrEmpty(series))
+            query = query.Where(b => b.Series == series);
+
+        if (!string.IsNullOrEmpty(language))
+        {
+            if (int.TryParse(language, out _))
+                throw new ArgumentException("Invalid value for language parameter.");
+            else query = query.Where(b => b.Language == language);
+        }
+
+        if (price_from != null)
+        {
+            if (price_from >= 0 && price_from <= 99999999.99)
+                query = query.Where(b => Convert.ToDouble(b.Price) >= price_from);
+            else throw new ArgumentException("Invalid value for price_from parameter.");
+        }
+
+        if (price_to != null)
+        {
+            if (price_to >= 0 && price_to <= 99999999.99)
+                query = query.Where(b => Convert.ToDouble(b.Price) <= price_to);
+            else throw new ArgumentException("Invalid value for price_to parameter.");
+        }
+        return query;
     }
 
     // GET: api/books/{id}
@@ -150,8 +183,8 @@ public class BooksController : Controller
     {
         var cacheKey = $"filteredBook_{id}";
         dynamic? response = null;
-        
-        if (_cache.TryGetValue(cacheKey, out BookViewModel? filteredBook))
+
+        if (!_cache.TryGetValue(cacheKey, out BookViewModel? filteredBook))
         {
             var book = await query.FirstOrDefaultAsync(b => b.Id == id);
 
@@ -160,24 +193,27 @@ public class BooksController : Controller
 
             filteredBook = MapBook(book);
             _cache.Set(cacheKey, filteredBook, TimeSpan.FromMinutes(10));
-
-            switch (specification)
-            {
-                case "name": response = filteredBook.Name; break;
-                case "year": response = filteredBook.YearOfPublish; break;
-                case "price": response = filteredBook.Price; break;
-                case "available": response = filteredBook.CountAvailable; break;
-                case "description": response = filteredBook.Description; break;
-                case "publishinghouse": response = filteredBook.PublishingHouse; break;
-                case "illustrations": response = filteredBook.Illustrations; break;
-                case "series": response = filteredBook.Series; break;
-                case "isbn": response = filteredBook.Isbn; break;
-                case "language": response = filteredBook.Language; break;
-                case "translator": response = filteredBook.Translator; break;
-                case "originalname": response = filteredBook.OriginalName; break;
-                case "page": response = filteredBook.Pages; break;
-                case "Picture": response = filteredBook.Picture; break;
-            }
+        }
+        
+        switch (specification.ToLower())
+        {
+            case "name": response = filteredBook!.Name; break;
+            case "year": response = filteredBook!.YearOfPublish; break;
+            case "price": response = filteredBook!.Price; break;
+            case "available": response = filteredBook!.CountAvailable; break;
+            case "description": response = filteredBook!.Description; break;
+            case "publishinghouse": response = filteredBook!.PublishingHouse; break;
+            case "illustrations": response = filteredBook!.Illustrations; break;
+            case "series": response = filteredBook!.Series; break;
+            case "isbn": response = filteredBook!.Isbn; break;
+            case "language": response = filteredBook!.Language; break;
+            case "translator": response = filteredBook!.Translator; break;
+            case "originalname": response = filteredBook!.OriginalName; break;
+            case "page": response = filteredBook!.Pages; break;
+            case "picture": response = filteredBook!.Picture; break;
+            case "authors": response = filteredBook!.Authors; break;
+            case "genres": response = filteredBook!.Genres; break;
+            default: return BadRequest();
         }
 
         return Ok(response);

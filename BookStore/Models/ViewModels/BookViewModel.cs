@@ -19,5 +19,5 @@ public class BookViewModel
     public string? Picture { get; set; }
     public IEnumerable<string> Authors { get; set; } = null!;
     public IEnumerable<string> Genres { get; set; } = null!;
-    public object BookGenres { get; internal set; }
+    public object BookGenres { get; internal set; } = null!;
 }
