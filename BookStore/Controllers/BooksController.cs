@@ -12,10 +12,17 @@ public class BooksController : Controller
 {
     private readonly BookStoreContext _bkstrContext;
     private readonly IMemoryCache _cache;
+    private IQueryable<Book> query;
     public BooksController(BookStoreContext bkstrContext, IMemoryCache cache)
     {
         _bkstrContext = bkstrContext;
         _cache = cache;
+
+        query = _bkstrContext.Books
+            .Include(b => b.BookAuthors)
+                .ThenInclude(ba => ba.IdAuthorNavigation)
+            .Include(b => b.BookGenres)
+                .ThenInclude(bg => bg.IdGenreNavigation);
     }
 
     // GET: api/books?[...]=[...]
@@ -34,16 +41,10 @@ public class BooksController : Controller
         [FromQuery] double? price_from,
         [FromQuery] double? price_to)
     {
-        if (!_cache.TryGetValue("FilteredBooks", out List<BookViewModel>? filteredBooks))
+        if (!_cache.TryGetValue("filteredBooks", out List<BookViewModel>? filteredBooks))
         {
-            IQueryable<Book> query = _bkstrContext.Books
-                .Include(b => b.BookAuthors)
-                    .ThenInclude(ba => ba.IdAuthorNavigation)
-                .Include(b => b.BookGenres)
-                    .ThenInclude(bg => bg.IdGenreNavigation);
-
             if (!string.IsNullOrEmpty(name))
-            query = query.Where(b => b.Name.StartsWith(name));
+                query = query.Where(b => b.Name.StartsWith(name));
 
             if (!string.IsNullOrEmpty(genre))
                 query = query.Where(b => b.BookGenres.Any(bg => bg.IdGenreNavigation.Name == genre));
@@ -117,8 +118,7 @@ public class BooksController : Controller
             if (books.Count == 0)
                 return NoContent();
 
-            _cache.Set("FilteredBooks", books, TimeSpan.FromMinutes(10));
-
+            _cache.Set("filteredBooks", books, TimeSpan.FromMinutes(10));
             filteredBooks = books;
         }
         return Ok(filteredBooks);
@@ -128,19 +128,60 @@ public class BooksController : Controller
     [HttpGet("{id:int}")]
     public async Task<ActionResult<Book>> GetBook(int id)
     {
-        var books = await _bkstrContext.Books
-        .Include(b => b.BookAuthors)
-            .ThenInclude(ba => ba.IdAuthorNavigation)
-        .Include(b => b.BookGenres)
-            .ThenInclude(bg => bg.IdGenreNavigation)
-        .Select(b => MapBook(b))
-        .ToListAsync();
+        var cacheKey = $"filteredBook_{id}";
 
-        var book = books.FirstOrDefault(b => b.Id == id);
+        if (!_cache.TryGetValue(cacheKey, out BookViewModel? filteredBook))
+        {
+            var book = await query.FirstOrDefaultAsync(b => b.Id == id);
 
-        return Ok(book);
+            if (book == null)
+                return NotFound();
+
+            filteredBook = MapBook(book);
+            _cache.Set(cacheKey, filteredBook, TimeSpan.FromMinutes(10));
+        }
+
+        return Ok(filteredBook);
     }
 
+    // GET: api/books/{id}/{specification}}
+    [HttpGet("{id:int}/{specification:alpha}")]
+    public async Task<ActionResult<Book>> GetBook(int id, [FromRoute] string specification)
+    {
+        var cacheKey = $"filteredBook_{id}";
+        dynamic? response = null;
+        
+        if (_cache.TryGetValue(cacheKey, out BookViewModel? filteredBook))
+        {
+            var book = await query.FirstOrDefaultAsync(b => b.Id == id);
+
+            if (book == null)
+                return NotFound();
+
+            filteredBook = MapBook(book);
+            _cache.Set(cacheKey, filteredBook, TimeSpan.FromMinutes(10));
+
+            switch (specification)
+            {
+                case "name": response = filteredBook.Name; break;
+                case "year": response = filteredBook.YearOfPublish; break;
+                case "price": response = filteredBook.Price; break;
+                case "available": response = filteredBook.CountAvailable; break;
+                case "description": response = filteredBook.Description; break;
+                case "publishinghouse": response = filteredBook.PublishingHouse; break;
+                case "illustrations": response = filteredBook.Illustrations; break;
+                case "series": response = filteredBook.Series; break;
+                case "isbn": response = filteredBook.Isbn; break;
+                case "language": response = filteredBook.Language; break;
+                case "translator": response = filteredBook.Translator; break;
+                case "originalname": response = filteredBook.OriginalName; break;
+                case "page": response = filteredBook.Pages; break;
+                case "Picture": response = filteredBook.Picture; break;
+            }
+        }
+
+        return Ok(response);
+    }
     private static BookViewModel MapBook(Book b)
     {
         return new BookViewModel
