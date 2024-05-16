@@ -251,17 +251,6 @@ namespace BookStore.Controllers
                                 formData.Series, formData.Isbn, formData.Language, formData.Translator,
                                 formData.OriginalName, formData.Pages, null);
 
-            if (formData.Picture != null && formData.Picture.Length > 0)
-            {
-                var fileName = $"{book.Id}.jpg";
-                var filePath = Path.Combine("Images", fileName);
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await formData.Picture.CopyToAsync(stream);
-                }
-                book.Picture = fileName;
-            }
-
             _bkstrContext.Books.Add(book);
             await _bkstrContext.SaveChangesAsync(); // Save to get the book ID
 
@@ -278,6 +267,32 @@ namespace BookStore.Controllers
                 // Update the book's picture path
                 _bkstrContext.Books.Update(book);
                 await _bkstrContext.SaveChangesAsync();
+            }
+            // Adding authors to the book and saving relationships
+            if (formData.Authors != null && formData.Authors.Any())
+            {
+                foreach (var authorName in formData.Authors)
+                {
+                    string[] name = authorName.Split(" ");
+
+                    var author = await _bkstrContext.Authors.FirstOrDefaultAsync(a => a.FirstName == name[0] && a.LastName == name[1]);
+                    if (author == null)
+                    {
+                        // If the author is not found, create a new one
+                        author = new Author { FirstName = name[0], LastName = name[1] };
+                        _bkstrContext.Authors.Add(author);
+                    }
+
+                    await _bkstrContext.SaveChangesAsync();
+
+                    // Create the relationship between the book and the author
+                    var bookAuthor = new BookAuthor
+                    {
+                        IdBook = book.Id,
+                        IdAuthor = author.Id
+                    };
+                    _bkstrContext.BookAuthors.Add(bookAuthor);
+                }
             }
 
             if (formData.Genres != null && formData.Genres.Any())
