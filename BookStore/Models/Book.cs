@@ -1,10 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace BookStore.Models;
 
 public partial class Book
 {
+    public Book(string name, int yearOfPublish, decimal price, int countAvailable, string? description,
+                string publishingHouse, bool illustrations, string? series, string isbn,
+                string language, string? translator, string? originalName, int? pages, string? picture)
+    {
+        Name = name;
+        YearOfPublish = yearOfPublish;
+        Price = price;
+        CountAvailable = countAvailable;
+        Description = description;
+        PublishingHouse = publishingHouse;
+        Illustrations = illustrations;
+        Series = series;
+        Isbn = isbn;
+        Language = language;
+        Translator = translator;
+        OriginalName = originalName;
+        Pages = pages;
+        Picture = picture;
+    }    
     public int Id { get; set; }
 
     public string Name { get; set; } = null!;
@@ -35,9 +55,10 @@ public partial class Book
 
     public string? Picture { get; set; }
 
-    public virtual ICollection<BookAuthor> BookAuthors { get; } = new List<BookAuthor>();
+    public virtual ICollection<BookAuthor> BookAuthors { get; set;} = new List<BookAuthor>();
 
-    public virtual ICollection<BookGenre> BookGenres { get; } = new List<BookGenre>();
+    [JsonIgnore]
+    public virtual ICollection<BookGenre> BookGenres { get; set;} = new List<BookGenre>();
 
     public virtual ICollection<OrderBook> OrderBooks { get; } = new List<OrderBook>();
 

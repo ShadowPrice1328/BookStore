@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BookStore.Models.ViewModels;
 
 public class BookViewModel
@@ -19,5 +21,6 @@ public class BookViewModel
     public string? Picture { get; set; }
     public IEnumerable<string> Authors { get; set; } = null!;
     public IEnumerable<string> Genres { get; set; } = null!;
+    [JsonIgnore]
     public object BookGenres { get; internal set; } = null!;
 }
